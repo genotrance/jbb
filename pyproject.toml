@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jbb"
+version = "0.1.0"
+description = "Download prebuilt libraries from Binary Builder"
+authors = [
+  {name = "Ganesh Viswanathan", email = "dev@genotrance.com"}
+]
+readme = "README.md"
+classifiers = [
+        "Development Status :: 4 - Beta",
+        "Environment :: Win32 (MS Windows)",
+        "Environment :: MacOS X",
+        "Intended Audience :: Developers",
+        "Intended Audience :: System Administrators",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: System :: Software Distribution"
+]
+
+[project.urls]
+Homepage = "https://github.com/genotrance/jbb"
+Repository = "https://github.com/genotrance/jbb"
+Issues = "https://github.com/genotrance/jbb/issues"
+
+[project.scripts]
+jbb = "jbb:main"
