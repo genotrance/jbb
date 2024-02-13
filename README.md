@@ -3,16 +3,16 @@
 ### Command line
 
 ```
-usage: jbb.py [-h] [-b ABI] [-a {aarch64,armv6l,armv7l,i686,powerpc64le,x86_64}] [-d OUTDIR] [-l {glibc,musl}] [-o {linux,windows,macos}] [-s {memory}] [-t] [-c] [-q] package [package ...]
+usage: jbb.py [-h] [-b ABI] [-a {aarch64,armv6l,armv7l,i686,powerpc64le,x86_64}] [-d OUTDIR] [-l {glibc,musl}] [-o {linux,windows,macos}] [-z {memory}] [-s] [-c] [-q] package [package ...]
 
 Download prebuilt libraries from Binary Builder
 
 positional arguments:
-  package               package to download
+  package               package/GitHub tag to download
 
 options:
   -h, --help            show this help message and exit
-  -b --abi ABI     ABI type if Linux
+  -b --abi ABI          ABI type if Linux
   -a --arch {aarch64,armv6l,armv7l,i686,powerpc64le,x86_64}
                         target machine
   -d --outdir OUTDIR
@@ -21,11 +21,11 @@ options:
                         libc type if Linux
   -o --os {linux,windows,macos}
                         operating system
-  -s --sanitize {memory}
+  -z --sanitize {memory}
                         sanitizer type
-  -t --static          copy .a files instead of .so/.dylib/.dll files
-  -c --clean           remove downloaded files
-  -q --quiet           suppress output
+  -s, --static          copy .a files
+  -c, --clean           remove downloaded files
+  -q, --quiet           suppress output
 ```
 
 #### For example:

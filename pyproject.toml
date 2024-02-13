@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jbb"
-version = "0.1.0"
+version = "0.1.1"
 description = "Download prebuilt libraries from Binary Builder"
 authors = [
   {name = "Ganesh Viswanathan", email = "dev@genotrance.com"}
@@ -40,3 +40,6 @@ Issues = "https://github.com/genotrance/jbb/issues"
 
 [project.scripts]
 jbb = "jbb:main"
+
+[tool.setuptools]
+py-modules = ["jbb"]

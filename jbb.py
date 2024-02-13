@@ -11,6 +11,7 @@ import urllib.request
 
 BASEURL = "https://github.com/JuliaBinaryWrappers"
 DIR = None
+DONE = []
 
 class Args:
     package = None
@@ -94,6 +95,7 @@ OPTIONS = {
         "help": "operating system"
     },
     "sanitize": {
+        "short": "z",
         "choices": ["memory"],
         "default": "",
         "help": "sanitizer type"
@@ -105,19 +107,26 @@ def skip_until(lines, string):
         if string in line:
             break
 
+def get_tag(args, package):
+    # Get version tag from package name if specified
+    for tag in args.package:
+        if tag.lower().startswith(package.lower() + "-"):
+            return tag
+    return "main"
+
 def dl_toml(args, package, file):
     # Download file.toml
-    toml = f"{DIR}/dl/{file}-{package[:-7]}.toml"
+    toml = f"{DIR}/dl/{file}-{package}.toml"
     if not os.path.exists(toml):
         if not args.quiet:
             print("- Downloading " + toml.split("/")[-1])
         try:
             urllib.request.urlretrieve(
-                f"https://raw.githubusercontent.com/JuliaBinaryWrappers/{package}/main/{file}.toml",
+                f"https://raw.githubusercontent.com/JuliaBinaryWrappers/{package}_jll.jl/{get_tag(args, package)}/{file}.toml",
                 toml)
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise ValueError(f"Package {package[:-7]} does not exist")
+                raise ValueError(f"Package {package} does not exist")
             else:
                 raise e
     return toml
@@ -139,7 +148,7 @@ def get_deps(args, package):
         # Extract package name
         pkg = line.split(" ")[0]
         if pkg.endswith("_jll"):
-            reqs.append(pkg[:-4].lower())
+            reqs.append(pkg[:-4])
         # Read next line
         line = next(lines)
 
@@ -179,11 +188,15 @@ def get_urls(args, package):
     return urls
 
 def get_jbb(args, package):
+    # Remove version tag if present
+    if package.count("-") > 0:
+        package = package.rsplit("-", 1)[0]
+
+    if package in DONE:
+        return
+
     if not args.quiet:
         print("Getting " + package)
-
-    # Add _jll.jl to package name
-    package += "_jll.jl"
 
     deps = get_deps(args, package)
     urls = get_urls(args, package)
@@ -234,6 +247,9 @@ def get_jbb(args, package):
         if len(fname.split(".")) == dots and not os.path.exists(f"{DIR}/{fname}"):
             shutil.copy(file, f"{DIR}/.")
 
+    # Add to DONE
+    DONE.append(package)
+
     for dep in deps:
         get_jbb(args, dep)
 
@@ -269,12 +285,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Download prebuilt libraries from Binary Builder")
 
     # Add the arguments
-    parser.add_argument("package", type=str, nargs="+", help="package to download")
+    parser.add_argument("package", type=str, nargs="+", help="package/GitHub tag to download")
     for option, params in OPTIONS.items():
         short = params["short"] if "short" in params else option[0]
         parser.add_argument(f"-{short}", f"--{option}", type=str, choices=params["choices"],
                             default=params["default"], help=params["help"])
-    parser.add_argument("-t", "--static", action="store_true", help="copy .a files instead of .so/.dylib/.dll files")
+    parser.add_argument("-s", "--static", action="store_true", help="copy .a files")
     parser.add_argument("-c", "--clean", action="store_true", help="remove downloaded files")
     parser.add_argument("-q", "--quiet", action="store_true", help="suppress output")
 
@@ -299,14 +315,14 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
     Run jbb with the specified package and optional arguments.
 
     Args:
-        package (str or list): package(s) to be processed
-        arch (str, optional): architecture - default: this platform
+        package (str or list): package/GitHub tag to download
+        arch (str, optional): target machine - default: this platform
         os (str, optional): operating system - default: this platform
-        libc (str, optional): libc type for Linux - default: this platform
-        abi (str, optional): ABI type for Linux - default: this platform
+        libc (str, optional): libc type if Linux - default: this platform
+        abi (str, optional): ABI type if Linux - default: this platform
         sanitize (str, optional): sanitizer type - default: ""
         outdir (str, optional): output directory - default: pwd/lib/arch-os[-libc]
-        static (bool, optional): copy .a files - default: copy .so/.dylib/.dll files
+        static (bool, optional): copy .a files - default: .so/.dylib/.dll files
         clean (bool, optional): remove downloaded files - default: false
         quiet (bool, optional): suppress output - default: true
 

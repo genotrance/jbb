@@ -1,0 +1,8 @@
+v0.1.1 - 2/13/2024
+- Add support to download a specific version of a package or its dependencies
+- Process a package only once if encountered multiple times as a dependency
+- Change static short flag to -s and sanitize to -z since it will rarely be used
+- Fixed issue where jbb could not be imported once installed
+
+v0.1.0 - 2/12/2024
+- Initial release
