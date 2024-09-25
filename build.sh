@@ -6,9 +6,10 @@ set -e
 if [ ! -d "dist" ] || [ "$1" = "--force" ]; then
     rm -rf build jbb.egg-info dist
 
-    python3 -m pip install build
+    python3 -m pip install build twine
     python3 -m build -w
     rm -rf build
+    python3 -m twine check dist/*
 fi
 
 test() {
@@ -27,11 +28,16 @@ test() {
     fi
 }
 
-if [ -d "$PYVENV" ]; then
-    for pyvenv in `ls -d $PYVENV/*`
-    do
-        test $pyvenv
-    done
+if [ "$1" = "--post" ]; then
+    python3 -m twine upload dist/*
 else
-    test ""
+    PYVENV="$HOME/pyvenv"
+    if [ -d "$PYVENV" ]; then
+        for pyvenv in `ls -d $PYVENV/*`
+        do
+            test $pyvenv
+        done
+    else
+        test ""
+    fi
 fi

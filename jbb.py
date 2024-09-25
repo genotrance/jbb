@@ -9,7 +9,7 @@ import sys
 import time
 import urllib.request
 
-BASEURL = "https://github.com/JuliaBinaryWrappers"
+DEFAULT_PROJECT = "JuliaBinaryWrappers"
 DIR = None
 DONE = []
 
@@ -19,6 +19,7 @@ class Args:
     arch = ""
     libc = ""
     os = ""
+    project = ""
     sanitize = ""
     outdir = None
     static = False
@@ -74,6 +75,7 @@ OPTIONS = {
         "help": "ABI type if Linux"
     },
     "arch": {
+        "short": "a",
         "choices": ["aarch64", "armv6l", "armv7l", "i686", "powerpc64le", "x86_64"],
         "default": get_arch(),
         "help": "target machine"
@@ -93,6 +95,12 @@ OPTIONS = {
         "choices": ["linux", "windows", "macos"],
         "default": get_os(),
         "help": "operating system"
+    },
+    "project": {
+        "short": "p",
+        "choices": None,
+        "default": DEFAULT_PROJECT,
+        "help": "GitHub project (user/repo)",
     },
     "sanitize": {
         "short": "z",
@@ -122,11 +130,16 @@ def dl_toml(args, package, file):
             print("- Downloading " + toml.split("/")[-1])
         try:
             urllib.request.urlretrieve(
-                f"https://raw.githubusercontent.com/JuliaBinaryWrappers/{package}_jll.jl/{get_tag(args, package)}/{file}.toml",
+                f"https://raw.githubusercontent.com/{args.project}/{package}_jll.jl/{get_tag(args, package)}/{file}.toml",
                 toml)
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise ValueError(f"Package {package} does not exist")
+                if args.project != DEFAULT_PROJECT:
+                    # Check if package exists in default project
+                    args.project = DEFAULT_PROJECT
+                    return dl_toml(args, package, file)
+                else:
+                    raise ValueError(f"Package {package} does not exist")
             else:
                 raise e
     return toml
@@ -310,7 +323,7 @@ def app(args):
 
     return DIR
 
-def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=None, static=False, clean=False, quiet=True):
+def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=None, project=None, static=False, clean=False, quiet=True):
     """
     Run jbb with the specified package and optional arguments.
 
@@ -322,6 +335,7 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
         abi (str, optional): ABI type if Linux - default: this platform
         sanitize (str, optional): sanitizer type - default: ""
         outdir (str, optional): output directory - default: pwd/lib/arch-os[-libc]
+        project (str, optional): GitHub project (user/repo) - default: JuliaBinaryWrappers
         static (bool, optional): copy .a files - default: .so/.dylib/.dll files
         clean (bool, optional): remove downloaded files - default: false
         quiet (bool, optional): suppress output - default: true

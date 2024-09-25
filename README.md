@@ -3,7 +3,7 @@
 ### Command line
 
 ```
-usage: jbb.py [-h] [-b ABI] [-a {aarch64,armv6l,armv7l,i686,powerpc64le,x86_64}] [-d OUTDIR] [-l {glibc,musl}] [-o {linux,windows,macos}] [-z {memory}] [-s] [-c] [-q] package [package ...]
+usage: jbb.py [-h] [-b ABI] [-a {aarch64,armv6l,armv7l,i686,powerpc64le,x86_64}] [-d OUTDIR] [-l {glibc,musl}] [-o {linux,windows,macos}] [-p PROJECT] [-z {memory}] [-s] [-c] [-q] package [package ...]
 
 Download prebuilt libraries from Binary Builder
 
@@ -21,6 +21,7 @@ options:
                         libc type if Linux
   -o --os {linux,windows,macos}
                         operating system
+  -p --project PROJECT  GitHub project (user/repo)
   -z --sanitize {memory}
                         sanitizer type
   -s, --static          copy .a files
