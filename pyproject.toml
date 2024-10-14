@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jbb"
-version = "0.1.2"
+version = "0.1.3"
 description = "Download prebuilt libraries from Binary Builder"
 authors = [
   {name = "Ganesh Viswanathan", email = "dev@genotrance.com"}
@@ -21,15 +21,13 @@ classifiers = [
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: System :: Software Distribution"
 ]
 
@@ -43,3 +41,9 @@ jbb = "jbb:main"
 
 [tool.setuptools]
 py-modules = ["jbb"]
+
+[tool.tox]
+envlist = ["py37", "py38", "py39", "py310", "py311", "py312", "py313"]
+
+[tool.tox.env_run_base]
+commands = [["python", "tests/test.py"]]

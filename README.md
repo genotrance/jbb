@@ -31,53 +31,39 @@ options:
 
 #### For example:
 ```
-# python3 jbb.py libcurl
-
+# python3 jbb.py libcurl -d /tmp/libcurl 
 Getting libcurl
 - Downloading Project-libcurl.toml
 - Downloading Artifacts-libcurl.toml
-- Downloading LibCURL.v8.6.0.x86_64-linux-musl.tar.gz
-- Extracting LibCURL.v8.6.0.x86_64-linux-musl.tar.gz
-- Copying libraries
-Getting libssh2
-- Downloading Project-libssh2.toml
-- Downloading Artifacts-libssh2.toml
-- Downloading LibSSH2.v1.11.0.x86_64-linux-musl.tar.gz
-- Extracting LibSSH2.v1.11.0.x86_64-linux-musl.tar.gz
-- Copying libraries
-Getting mbedtls
-- Downloading Project-mbedtls.toml
-- Downloading Artifacts-mbedtls.toml
-- Downloading MbedTLS.v2.28.6.x86_64-linux-musl.tar.gz
-- Extracting MbedTLS.v2.28.6.x86_64-linux-musl.tar.gz
-- Copying libraries
+- Downloading LibCURL.v8.9.1.x86_64-linux-gnu.tar.gz
+- Extracting LibCURL.v8.9.1.x86_64-linux-gnu.tar.gz
+Getting LibSSH2
+- Downloading Project-LibSSH2.toml
+- Downloading Artifacts-LibSSH2.toml
+- Downloading LibSSH2.v1.11.2.x86_64-linux-gnu.tar.gz
+- Extracting LibSSH2.v1.11.2.x86_64-linux-gnu.tar.gz
+Getting OpenSSL
+- Downloading Tags_OpenSSL.bin
+- Downloading Project-OpenSSL.toml
+- Downloading Artifacts-OpenSSL.toml
+- Downloading OpenSSL.v3.0.15.x86_64-linux-gnu.tar.gz
+- Extracting OpenSSL.v3.0.15.x86_64-linux-gnu.tar.gz
 Getting nghttp2
 - Downloading Project-nghttp2.toml
 - Downloading Artifacts-nghttp2.toml
-- Downloading nghttp2.v1.59.0.x86_64-linux-musl.tar.gz
-- Extracting nghttp2.v1.59.0.x86_64-linux-musl.tar.gz
-- Copying libraries
-Getting mbedtls
-- Copying libraries
-Getting zlib
-- Downloading Project-zlib.toml
-- Downloading Artifacts-zlib.toml
-- Downloading Zlib.v1.3.1.x86_64-linux-musl.tar.gz
-- Extracting Zlib.v1.3.1.x86_64-linux-musl.tar.gz
-- Copying libraries
-Downloaded to lib/x86_64-linux-musl
+- Downloading nghttp2.v1.63.0.x86_64-linux-gnu.tar.gz
+- Extracting nghttp2.v1.63.0.x86_64-linux-gnu.tar.gz
+Getting Zlib
+- Downloading Project-Zlib.toml
+- Downloading Artifacts-Zlib.toml
+- Downloading Zlib.v1.3.1.x86_64-linux-gnu.tar.gz
+- Extracting Zlib.v1.3.1.x86_64-linux-gnu.tar.gz
+Downloaded to /tmp/libcurl
+/tmp/libcurl/libcurl/lib:/tmp/libcurl/LibSSH2/lib:/tmp/libcurl/OpenSSL/lib:/tmp/libcurl/nghttp2/lib:/tmp/libcurl/Zlib/lib
 
-# ls -1 lib/x86_64-linux-musl
-dl
-libcurl.so.4
-libmbedcrypto.so.7
-libmbedtls.so.14
-libmbedx509.so.1
-libnghttp2.so.14
-libssh2.so.1
-libz.so.1
-
-# export LD_LIBRARY_PATH=`pwd`/lib/linux-musl-x86_64
+# export LD_LIBRARY_PATH=`python3 jbb.py libcurl -d /tmp/libcurl -q`
+# echo $LD_LIBRARY_PATH
+/tmp/libcurl/libcurl/lib:/tmp/libcurl/LibSSH2/lib:/tmp/libcurl/OpenSSL/lib:/tmp/libcurl/nghttp2/lib:/tmp/libcurl/Zlib/lib
 ```
 
 ### API

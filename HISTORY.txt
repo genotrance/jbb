@@ -1,4 +1,13 @@
-v0.1.2 - 2/13/2024
+v0.1.3 - 10/13/2024
+- Resolve package version numbers if specified with upstream git tags
+- Get version info from Project.toml [compat] section if present to pull
+  the right version of a package dependency
+- Return a list of directories containing the library binaries for
+  downloaded packages rather than copying files to outdir
+- CLI prints library directories separated by ; or : depending on OS
+- Output directory is converted into an absolute path
+
+v0.1.2 - 9/24/2024
 - Add support for specifying a different GitHub project (user/org) than
   JuliaBinaryWrappers using the --project | -p flag
 - Add missed short flag for --arch as -a

@@ -1,21 +1,20 @@
 "Download prebuilt libraries from Binary Builder"
 
 import argparse
-import glob
 import os
 import platform
 import shutil
 import sys
-import time
 import urllib.request
 
 DEFAULT_PROJECT = "JuliaBinaryWrappers"
 DIR = None
 DONE = []
 
+
 class Args:
     package = None
-    abi= ""
+    abi = ""
     arch = ""
     libc = ""
     os = ""
@@ -26,12 +25,14 @@ class Args:
     clean = False
     quiet = True
 
+
 def get_arch():
     arch = platform.machine()
     if arch == "AMD64":
         arch = "x86_64"
 
     return arch
+
 
 def get_os():
     if sys.platform == "linux":
@@ -43,11 +44,13 @@ def get_os():
     else:
         raise ValueError("Unknown OS")
 
+
 def get_libc():
     if sys.platform == "linux":
         return platform.libc_ver()[0] or "musl"
     else:
         return ""
+
 
 def get_key(args=None):
     if args is None:
@@ -66,6 +69,7 @@ def get_key(args=None):
     if len(args.sanitize) != 0:
         key += f"-{args.sanitize}"
     return key
+
 
 OPTIONS = {
     "abi": {
@@ -110,43 +114,70 @@ OPTIONS = {
     }
 }
 
+
 def skip_until(lines, string):
     for line in lines:
         if string in line:
             break
 
-def get_tag(args, package):
-    # Get version tag from package name if specified
-    for tag in args.package:
-        if tag.lower().startswith(package.lower() + "-"):
-            return tag
-    return "main"
 
-def dl_toml(args, package, file):
-    # Download file.toml
-    toml = f"{DIR}/dl/{file}-{package}.toml"
-    if not os.path.exists(toml):
+def dl_file(args, package, url, path):
+    if not os.path.exists(path):
         if not args.quiet:
-            print("- Downloading " + toml.split("/")[-1])
+            print("- Downloading " + path.split("/")[-1])
         try:
-            urllib.request.urlretrieve(
-                f"https://raw.githubusercontent.com/{args.project}/{package}_jll.jl/{get_tag(args, package)}/{file}.toml",
-                toml)
+            urllib.request.urlretrieve(url % (args.project, package), path)
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 if args.project != DEFAULT_PROJECT:
-                    # Check if package exists in default project
                     args.project = DEFAULT_PROJECT
-                    return dl_toml(args, package, file)
+                    return dl_file(args, package, url, path)
                 else:
                     raise ValueError(f"Package {package} does not exist")
             else:
                 raise e
+
+
+def dl_tags(args, package):
+    # Download all git tags for the package
+    tagfile = f"{DIR}{os.path.sep}Tags_{package}.bin"
+    url = "https://github.com/%s/%s_jll.jl.git/info/refs?service=git-upload-pack"
+    dl_file(args, package, url, tagfile)
+    return tagfile
+
+
+def dl_toml(args, package, tag, file):
+    # Download file.toml
+    toml = f"{DIR}{os.path.sep}{file}-{package}.toml"
+    url = "https://raw.githubusercontent.com/%s/%s_jll.jl/" + \
+        f"{tag}/{file}.toml"
+    dl_file(args, package, url, toml)
     return toml
 
-def get_deps(args, package):
+
+def get_tag(args, package, version):
+    # Get full version tag from package name if specified
+    if len(version) != 0:
+        ptag = f"{package}-{version}"
+        tagfile = dl_tags(args, package)
+        tags = []
+        with open(tagfile, "r") as tf:
+            for line in tf.readlines():
+                if "refs/tags/" in line:
+                    tag = line.split("refs/tags/")[-1].strip()
+                    if not tag.endswith("^{}"):  # Exclude peeled tags
+                        tags.append(tag)
+        tags.sort(reverse=True)
+        for tag in tags:
+            if tag.startswith(ptag):
+                return tag
+        raise ValueError(f"{ptag} not found")
+    return "main"
+
+
+def get_deps(args, package, tag):
     # Download Package.toml
-    toml = dl_toml(args, package, "Project")
+    toml = dl_toml(args, package, tag, "Project")
 
     # Load Package.toml
     reqs = []
@@ -165,11 +196,35 @@ def get_deps(args, package):
         # Read next line
         line = next(lines)
 
+    # Add version tags if compat defined
+    lines = iter(open(toml, "r").readlines())
+
+    # Skip until [compat] section
+    skip_until(lines, "[compat]")
+
+    # Read all lines until empty line
+    line = next(lines)
+    while True:
+        # Extract package name
+        pkg, version = line.strip().split(" = ", 1)
+        if pkg.endswith("_jll"):
+            pkgname = pkg[:-4]
+            version = version.strip('"')
+            if pkgname in reqs:
+                idx = reqs.index(pkgname)
+                reqs[idx] = f"{pkgname}-v{version}"
+        try:
+            # Read next line
+            line = next(lines)
+        except StopIteration:
+            break
+
     return reqs
 
-def get_urls(args, package):
+
+def get_urls(args, package, tag):
     # Download Artifacts.toml
-    toml = dl_toml(args, package, "Artifacts")
+    toml = dl_toml(args, package, tag, "Artifacts")
 
     # Load Artifacts.toml
     lines = iter(open(toml, "r").readlines())
@@ -200,19 +255,23 @@ def get_urls(args, package):
 
     return urls
 
+
 def get_jbb(args, package):
     # Remove version tag if present
     if package.count("-") > 0:
-        package = package.rsplit("-", 1)[0]
+        package, version = package.split("-", 1)
+    else:
+        version = ""
 
     if package in DONE:
-        return
+        return []
 
     if not args.quiet:
         print("Getting " + package)
 
-    deps = get_deps(args, package)
-    urls = get_urls(args, package)
+    tag = get_tag(args, package, version)
+    deps = get_deps(args, package, tag)
+    urls = get_urls(args, package, tag)
 
     key = get_key(args)
     if key not in urls:
@@ -226,7 +285,7 @@ def get_jbb(args, package):
 
     # Download package
     url = urls[key]
-    filename = f"{DIR}/dl/{url.split('/')[-1]}"
+    filename = f"{DIR}{os.path.sep}{url.split('/')[-1]}"
     fname = os.path.basename(filename)
     if not os.path.exists(filename):
         if not args.quiet:
@@ -234,57 +293,62 @@ def get_jbb(args, package):
         urllib.request.urlretrieve(url, filename)
 
     # Extract tgz with Python
-    extracted = f"{DIR}/dl/{package}"
+    extracted = f"{DIR}{os.path.sep}{package}"
     if not os.path.exists(extracted):
         if not args.quiet:
             print("- Extracting " + fname)
         shutil.unpack_archive(filename, extracted)
 
-    # Move libraries into lib
-    if not args.quiet:
-        print("- Copying libraries")
-    if not args.static:
-        dots = 3
-        if args.os == "linux":
-            match = "lib/*.so.*"
-        elif args.os == "macos":
-            match = "lib/*.*.dylib"
-        elif args.os == "windows":
-            match = "bin/*.dll"
-            dots = 2
-    else:
-        match = "lib/*.a"
-        dots = 2
-    for file in glob.glob(f"{extracted}/{match}"):
-        fname = os.path.basename(file)
-        if len(fname.split(".")) == dots and not os.path.exists(f"{DIR}/{fname}"):
-            shutil.copy(file, f"{DIR}/.")
+    # Get path for libraries directory
+    # Determine the correct library directory
+    libdir = ""
+    if sys.platform in ["linux", "darwin"]:
+        if os.path.exists(f"{extracted}{os.path.sep}lib64"):
+            libdir = "lib64"
+        elif os.path.exists(f"{extracted}{os.path.sep}lib"):
+            libdir = "lib"
+    elif sys.platform == "win32":
+        if os.path.exists(f"{extracted}{os.path.sep}bin"):
+            libdir = "bin"
+
+    # Add only if libdir exists
+    libs = []
+    if len(libdir):
+        libs = [f"{extracted}{os.path.sep}{libdir}"]
 
     # Add to DONE
     DONE.append(package)
 
     for dep in deps:
-        get_jbb(args, dep)
+        dep_libs = get_jbb(args, dep)
+        if len(dep_libs) != 0:
+            libs.extend(dep_libs)
+
+    return libs
+
 
 def setup(args):
     global DIR
 
     # Create output for jbb
     if len(args.outdir) == 0:
-        DIR = f"lib/{get_key(args)}"
+        DIR = f"lib{os.path.sep}{get_key(args)}"
     else:
         DIR = args.outdir
 
-    os.makedirs(f"{DIR}/dl", exist_ok=True)
+    DIR = os.path.abspath(DIR)
+
+    os.makedirs(f"{DIR}", exist_ok=True)
+
 
 def clean(args):
     if not args.clean:
         return
 
-    dldir = f"{DIR}/dl"
     if not args.quiet:
-        print("Removing " + dldir)
-    shutil.rmtree(dldir, ignore_errors=True)
+        print("Removing " + DIR)
+    shutil.rmtree(DIR, ignore_errors=True)
+
 
 def check_args(args):
     # Adjust libc
@@ -293,19 +357,25 @@ def check_args(args):
     elif args.os != "linux" and args.libc != "":
         raise ValueError("libc is only valid for Linux")
 
+
 def parse_args():
     # Create the argument parser
-    parser = argparse.ArgumentParser(description="Download prebuilt libraries from Binary Builder")
+    parser = argparse.ArgumentParser(
+        description="Download prebuilt libraries from Binary Builder")
 
     # Add the arguments
-    parser.add_argument("package", type=str, nargs="+", help="package/GitHub tag to download")
+    parser.add_argument("package", type=str, nargs="+",
+                        help="package/GitHub tag to download")
     for option, params in OPTIONS.items():
         short = params["short"] if "short" in params else option[0]
         parser.add_argument(f"-{short}", f"--{option}", type=str, choices=params["choices"],
                             default=params["default"], help=params["help"])
-    parser.add_argument("-s", "--static", action="store_true", help="copy .a files")
-    parser.add_argument("-c", "--clean", action="store_true", help="remove downloaded files")
-    parser.add_argument("-q", "--quiet", action="store_true", help="suppress output")
+    parser.add_argument(
+        "-s", "--static", action="store_true", help="copy .a files")
+    parser.add_argument("-c", "--clean", action="store_true",
+                        help="remove downloaded files")
+    parser.add_argument("-q", "--quiet", action="store_true",
+                        help="suppress output")
 
     # Parse and check the arguments
     args = parser.parse_args()
@@ -314,14 +384,18 @@ def parse_args():
     return args
 
 # Main function that takes the first argument and runs get_jbb() on it
+
+
 def app(args):
     setup(args)
+    libs = []
     for package in args.package:
-        get_jbb(args, package)
+        libs.extend(get_jbb(args, package))
 
     clean(args)
 
-    return DIR
+    return libs
+
 
 def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=None, project=None, static=False, clean=False, quiet=True):
     """
@@ -341,7 +415,7 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
         quiet (bool, optional): suppress output - default: true
 
     Returns:
-        str: directory where the libraries were downloaded (outdir)
+        [str]: directories where the libraries were downloaded
 
     Raises:
         ValueError
@@ -360,7 +434,8 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
     elif type(package) == str:
         args.package = [package]
     else:
-        raise ValueError("Invalid package type - should be string or list of strings")
+        raise ValueError(
+            "Invalid package type - should be string or list of strings")
 
     for option, params in OPTIONS.items():
         if locals()[option] is not None:
@@ -369,7 +444,8 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
             elif locals()[option] in params["choices"]:
                 setattr(args, option, locals()[option])
             else:
-                raise ValueError(f"Invalid value for {option}: {locals()[option]}")
+                errstr = f"Invalid value for {option}: {locals()[option]}"
+                raise ValueError(errstr)
         else:
             setattr(args, option, params["default"])
 
@@ -377,17 +453,20 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
 
     return app(args)
 
+
 def main():
     args = parse_args()
 
     try:
-        app(args)
+        libs = app(args)
     except ValueError as e:
         print(e.args[0])
         sys.exit(1)
 
     if not args.quiet:
         print("Downloaded to " + DIR)
+    print(os.path.pathsep.join(libs))
+
 
 if __name__ == "__main__":
     main()
