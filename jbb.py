@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import sys
+import tarfile
 import urllib.request
 
 DEFAULT_PROJECT = "JuliaBinaryWrappers"
@@ -256,7 +257,7 @@ def get_urls(args, package, tag):
     return urls
 
 
-def get_jbb(args, package):
+def get_jbb(args, package, is_dep=False):
     # Remove version tag if present
     if package.count("-") > 0:
         package, version = package.split("-", 1)
@@ -273,15 +274,26 @@ def get_jbb(args, package):
     deps = get_deps(args, package, tag)
     urls = get_urls(args, package, tag)
 
+    # Add to DONE
+    DONE.append(package)
+
     key = get_key(args)
     if key not in urls:
         if len(urls) == 1 and "" in urls:
+            # Platform independent package
             key = ""
         else:
-            err = f"{key} not available. Available options:\n"
+            err = f"{package}: {key} not available. Available options:\n"
             for key in sorted(urls.keys()):
                 err += f"  {key}\n"
-            raise ValueError(err)
+            if is_dep:
+                # Warn if dependency unavailable for this platform
+                if not args.quiet:
+                    print(err)
+                return []
+            else:
+                # Error if package explicitly requested
+                raise ValueError(err)
 
     # Download package
     url = urls[key]
@@ -297,7 +309,13 @@ def get_jbb(args, package):
     if not os.path.exists(extracted):
         if not args.quiet:
             print("- Extracting " + fname)
-        shutil.unpack_archive(filename, extracted)
+        with tarfile.open(filename, "r:gz") as tar:
+            tar.extractall(extracted)
+            for member in tar.getmembers():
+                extracted_path = f"{extracted}{os.path.sep}{member.name}"
+                if member.mtime == 0:
+                    # Fix timestamps since missing
+                    os.utime(extracted_path, None)
 
     # Get path for libraries directory
     # Determine the correct library directory
@@ -316,11 +334,8 @@ def get_jbb(args, package):
     if len(libdir):
         libs = [f"{extracted}{os.path.sep}{libdir}"]
 
-    # Add to DONE
-    DONE.append(package)
-
     for dep in deps:
-        dep_libs = get_jbb(args, dep)
+        dep_libs = get_jbb(args, dep, is_dep=True)
         if len(dep_libs) != 0:
             libs.extend(dep_libs)
 
@@ -373,7 +388,7 @@ def parse_args():
     parser.add_argument(
         "-s", "--static", action="store_true", help="copy .a files")
     parser.add_argument("-c", "--clean", action="store_true",
-                        help="remove downloaded files")
+                        help="start with clean output directory")
     parser.add_argument("-q", "--quiet", action="store_true",
                         help="suppress output")
 
@@ -411,7 +426,7 @@ def jbb(package, arch=None, os=None, libc=None, abi=None, sanitize=None, outdir=
         outdir (str, optional): output directory - default: pwd/lib/arch-os[-libc]
         project (str, optional): GitHub project (user/repo) - default: JuliaBinaryWrappers
         static (bool, optional): copy .a files - default: .so/.dylib/.dll files
-        clean (bool, optional): remove downloaded files - default: false
+        clean (bool, optional): start with clean output directory - default: false
         quiet (bool, optional): suppress output - default: true
 
     Returns:

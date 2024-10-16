@@ -9,15 +9,11 @@ set -e
 
 if [ -z "$PY" ]; then
     echo "PY not set"
-    PY=python3
-fi
-
-if [ -z "$TMP" ]; then
-  TMP=/tmp
+    exit
 fi
 
 if [ ! -d "dist" ] || [ "$1" = "--force" ]; then
-    # Build wheels if missing or --wheel
+    # Build wheels if missing or --force
     rm -rf build jbb.egg-info dist
     $PY -m pip install build twine
     $PY -m build -w
@@ -29,7 +25,7 @@ if [ "$1" = "--post" ]; then
     # Upload wheel to PyPI
     $PY -m twine upload dist/*
 elif [ "$1" = "--test" ]; then
-    if [ -f "/.dockerenv" ] || [ "$OS" = "darwin" ] || [[ "$OS" = "windows"* ]]; then
+    if [ -f "/.dockerenv" ] || [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
         # Run tests with tox
         $PY -m pip install tox
         $PY -m tox --installpkg dist/jbb-*.whl --workdir $TMP
@@ -38,7 +34,8 @@ elif [ "$1" = "--test" ]; then
         for arch in x86_64 i686 aarch64; do
             for abi in musllinux_1_1_ manylinux2014_; do
                 # Set PY to cp312
-                docker run -it --rm -w /jbb -v `pwd`:/jbb -e PY=/opt/python/cp312-cp312/bin/python3 \
+                docker run -it --rm -w /jbb -v `pwd`:/jbb \
+                    -e PY=/opt/python/cp312-cp312/bin/python3 -e OS=$OS -e TMP=$TMP \
                     quay.io/pypa/$abi$arch /jbb/build.sh --test
             done
         done

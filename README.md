@@ -25,7 +25,7 @@ options:
   -z --sanitize {memory}
                         sanitizer type
   -s, --static          copy .a files
-  -c, --clean           remove downloaded files
+  -c, --clean           start with clean output directory
   -q, --quiet           suppress output
 ```
 
