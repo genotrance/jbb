@@ -129,7 +129,7 @@ def dl_file(args, package, url, path):
         try:
             urllib.request.urlretrieve(url % (args.project, package), path)
         except urllib.error.HTTPError as e:
-            if e.code == 404:
+            if e.code in [401, 404]:
                 if args.project != DEFAULT_PROJECT:
                     args.project = DEFAULT_PROJECT
                     return dl_file(args, package, url, path)
@@ -158,22 +158,22 @@ def dl_toml(args, package, tag, file):
 
 def get_tag(args, package, version):
     # Get full version tag from package name if specified
+    tagfile = dl_tags(args, package)
+    tags = []
+    with open(tagfile, "r") as tf:
+        for line in tf.readlines():
+            if "refs/tags/" in line:
+                tag = line.split("refs/tags/")[-1].strip()
+                if not tag.endswith("^{}"):  # Exclude peeled tags
+                    tags.append(tag)
+    tags.sort(reverse=True)
     if len(version) != 0:
         ptag = f"{package}-{version}"
-        tagfile = dl_tags(args, package)
-        tags = []
-        with open(tagfile, "r") as tf:
-            for line in tf.readlines():
-                if "refs/tags/" in line:
-                    tag = line.split("refs/tags/")[-1].strip()
-                    if not tag.endswith("^{}"):  # Exclude peeled tags
-                        tags.append(tag)
-        tags.sort(reverse=True)
         for tag in tags:
             if tag.startswith(ptag):
                 return tag
         raise ValueError(f"{ptag} not found")
-    return "main"
+    return tags[0]
 
 
 def get_deps(args, package, tag):

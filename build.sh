@@ -15,9 +15,9 @@ fi
 if [ ! -d "dist" ] || [ "$1" = "--force" ]; then
     # Build wheels if missing or --force
     rm -rf build jbb.egg-info dist
-    $PY -m pip install build twine
-    $PY -m build -w
-    rm -rf build
+    uv pip install build twine
+    $PY -m build -w -s
+    rm -rf build jbb.egg-info
     $PY -m twine check dist/*
 fi
 
@@ -27,7 +27,7 @@ if [ "$1" = "--post" ]; then
 elif [ "$1" = "--test" ]; then
     if [ -f "/.dockerenv" ] || [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
         # Run tests with tox
-        $PY -m pip install tox
+        uv pip install tox
         $PY -m tox --installpkg dist/jbb-*.whl --workdir $TMP
     else
         # Run tests in containers for linux
