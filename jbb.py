@@ -3,6 +3,7 @@
 import argparse
 import os
 import platform
+import re
 import shutil
 import sys
 import tarfile
@@ -156,6 +157,14 @@ def dl_toml(args, package, tag, file):
     return toml
 
 
+def tag_version(tag):
+    # Sort key for a Package-vX.Y.Z+N tag - numeric so that v8.23.0 > v8.9.1
+    # and +10 > +9, which a plain string sort gets wrong
+    version = tag.rsplit("-v", 1)[-1]
+    return tuple(int(part) if part.isdigit() else -1
+                 for part in re.split(r"[.+]", version))
+
+
 def get_tag(args, package, version):
     # Get full version tag from package name if specified
     tagfile = dl_tags(args, package)
@@ -166,11 +175,11 @@ def get_tag(args, package, version):
                 tag = line.split("refs/tags/")[-1].strip()
                 if not tag.endswith("^{}"):  # Exclude peeled tags
                     tags.append(tag)
-    tags.sort(reverse=True)
+    tags.sort(key=tag_version, reverse=True)
     if len(version) != 0:
         ptag = f"{package}-{version}"
         for tag in tags:
-            if tag.startswith(ptag):
+            if tag == ptag or tag.startswith((ptag + ".", ptag + "+")):
                 return tag
         raise ValueError(f"{ptag} not found")
     return tags[0]
