@@ -40,9 +40,11 @@ def assert_libcurl_versions(versions):
             quiet=False
         )
         assert libs and os.path.exists(libs[0]), f"LibCURL {version} was not extracted"
-        assert version in libs[0], f"LibCURL {version} used the wrong extraction directory"
+        assert libs[0].startswith(os.path.join(cache_dir, "LibCURL")), f"unexpected libdir {libs[0]}"
+        with open(os.path.join(cache_dir, "LibCURL", ".jbb-source")) as mf:
+            assert mf.read().split("\n")[1].startswith(f"LibCURL-{version}"), \
+                f"LibCURL {version} was not re-extracted"
         results.append(libs[0])
-    assert results[0] != results[1], "LibCURL versions shared an extraction directory"
     shutil.rmtree(cache_dir, ignore_errors=True)
 
 
@@ -109,3 +111,12 @@ with open(jbb.tag_path("genotrance", "LibCURL"), "r") as tf:
 assert latest == max(tags, key=jbb.tag_version), f"LibCURL resolved to {latest}"
 assert latest != "LibCURL-v8.9.1+1", "LibCURL resolved to the lexically largest tag"
 shutil.rmtree(tag_dir, ignore_errors=True)
+
+# Extraction layout must match 0.1.6: <outdir>/<Package>/
+layout_dir = tempfile.mkdtemp("jbblayout")
+libs = jbb.jbb("LibCURL-v8.23.0", outdir=layout_dir, project="genotrance")
+base = "bin" if sys.platform == "win32" else "lib"
+assert libs[0] in [os.path.join(layout_dir, "LibCURL", base),
+                   os.path.join(layout_dir, "LibCURL", "lib64")], libs[0]
+assert os.path.exists(os.path.join(layout_dir, "LibCURL", "include", "curl", "curl.h"))
+shutil.rmtree(layout_dir, ignore_errors=True)

@@ -345,7 +345,7 @@ def get_jbb(args, package, is_dep=False):
                 # Error if package explicitly requested
                 raise ValueError(err)
 
-    # Keep archives and extraction roots isolated by their source project and tag.
+    # Keep archives isolated by project and tag; extraction paths stay <outdir>/<Package>.
     cache_dir = os.path.join(DIR, cache_name(args.project), cache_name(tag))
     os.makedirs(cache_dir, exist_ok=True)
     url = urls[key]
@@ -357,8 +357,16 @@ def get_jbb(args, package, is_dep=False):
         urllib.request.urlretrieve(url, filename)
 
     # Extract tgz with Python
-    extracted = os.path.join(cache_dir, package)
-    if not os.path.exists(extracted):
+    extracted = os.path.join(DIR, package)
+    marker = os.path.join(extracted, ".jbb-source")
+    source = f"{args.project}\n{tag}\n{url}\n"
+    current = ""
+    if os.path.exists(marker):
+        with open(marker, "r") as mf:
+            current = mf.read()
+    if current != source:
+        # Stale or unmarked package directory; re-extract from scratch
+        shutil.rmtree(extracted, ignore_errors=True)
         if not args.quiet:
             print("- Extracting " + fname)
         with tarfile.open(filename, "r:gz") as tar:
@@ -368,6 +376,8 @@ def get_jbb(args, package, is_dep=False):
                 if member.mtime == 0:
                     # Fix timestamps since missing
                     os.utime(extracted_path, None)
+        with open(marker, "w") as mf:
+            mf.write(source)
 
     # Get path for libraries directory
     # Determine the correct library directory
