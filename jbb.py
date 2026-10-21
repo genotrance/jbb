@@ -1,6 +1,7 @@
 "Download prebuilt libraries from Binary Builder"
 
 import argparse
+import hashlib
 import os
 import platform
 import re
@@ -20,7 +21,7 @@ class Args:
     arch = ""
     libc = ""
     os = ""
-    project = ""
+    project = DEFAULT_PROJECT
     sanitize = ""
     outdir = None
     static = False
@@ -123,37 +124,76 @@ def skip_until(lines, string):
             break
 
 
-def dl_file(args, package, url, path):
-    if not os.path.exists(path):
+def cache_name(value):
+    # Keep cache names readable while making distinct GitHub names collision-safe.
+    readable = re.sub(r"[^A-Za-z0-9_.-]", "_", value)
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{readable}-{digest}"
+
+
+def tag_path(project, package):
+    return os.path.join(DIR, f"Tags_{cache_name(project)}_{cache_name(package)}.bin")
+
+
+def toml_path(project, package, tag, file):
+    return os.path.join(
+        DIR, f"{file}-{cache_name(project)}_{cache_name(package)}-{cache_name(tag)}.toml")
+
+
+def dl_file(args, package, url, path, refresh=False, fallback=False):
+    if refresh or not os.path.exists(path):
         if not args.quiet:
-            print("- Downloading " + path.split("/")[-1])
+            print("- Downloading " + os.path.basename(path))
+        temporary_path = path + ".download"
         try:
-            urllib.request.urlretrieve(url % (args.project, package), path)
+            urllib.request.urlretrieve(url % (args.project, package), temporary_path)
+            os.replace(temporary_path, path)
         except urllib.error.HTTPError as e:
             if e.code in [401, 404]:
                 if args.project != DEFAULT_PROJECT:
                     args.project = DEFAULT_PROJECT
-                    return dl_file(args, package, url, path)
-                else:
-                    raise ValueError(f"Package {package} does not exist")
-            else:
-                raise e
+                    return dl_file(args, package, url, path, refresh, fallback)
+                raise ValueError(f"Package {package} does not exist")
+            if fallback and os.path.exists(path):
+                print(f"Warning: could not refresh tags for {package}; using cached tags",
+                      file=sys.stderr)
+                return args.project
+            raise
+        except urllib.error.URLError:
+            if fallback and os.path.exists(path):
+                print(f"Warning: could not refresh tags for {package}; using cached tags",
+                      file=sys.stderr)
+                return args.project
+            raise
+    return args.project
 
 
 def dl_tags(args, package):
-    # Download all git tags for the package
-    tagfile = f"{DIR}{os.path.sep}Tags_{package}.bin"
+    # Refresh tags on every lookup so an unversioned request sees the latest tag.
+    requested_project = args.project
+    tagfile = tag_path(requested_project, package)
     url = "https://github.com/%s/%s_jll.jl.git/info/refs?service=git-upload-pack"
-    dl_file(args, package, url, tagfile)
+    project = dl_file(args, package, url, tagfile, refresh=True, fallback=True)
+    if project != requested_project:
+        actual_tagfile = tag_path(project, package)
+        if not os.path.exists(actual_tagfile):
+            os.replace(tagfile, actual_tagfile)
+        return actual_tagfile
     return tagfile
 
 
 def dl_toml(args, package, tag, file):
-    # Download file.toml
-    toml = f"{DIR}{os.path.sep}{file}-{package}.toml"
+    # Cache metadata by the project and resolved tag that supplied it.
+    requested_project = args.project
+    toml = toml_path(requested_project, package, tag, file)
     url = "https://raw.githubusercontent.com/%s/%s_jll.jl/" + \
         f"{tag}/{file}.toml"
-    dl_file(args, package, url, toml)
+    project = dl_file(args, package, url, toml)
+    if project != requested_project:
+        actual_toml = toml_path(project, package, tag, file)
+        if not os.path.exists(actual_toml):
+            os.replace(toml, actual_toml)
+        return actual_toml
     return toml
 
 
@@ -273,18 +313,19 @@ def get_jbb(args, package, is_dep=False):
     else:
         version = ""
 
-    if package in DONE:
-        return []
-
     if not args.quiet:
         print("Getting " + package)
 
     tag = get_tag(args, package, version)
+    done_key = (args.project, package, tag)
+    if done_key in DONE:
+        return []
+
     deps = get_deps(args, package, tag)
     urls = get_urls(args, package, tag)
 
-    # Add to DONE
-    DONE.append(package)
+    # Add the resolved package identity to DONE.
+    DONE.append(done_key)
 
     key = get_key(args)
     if key not in urls:
@@ -304,9 +345,11 @@ def get_jbb(args, package, is_dep=False):
                 # Error if package explicitly requested
                 raise ValueError(err)
 
-    # Download package
+    # Keep archives and extraction roots isolated by their source project and tag.
+    cache_dir = os.path.join(DIR, cache_name(args.project), cache_name(tag))
+    os.makedirs(cache_dir, exist_ok=True)
     url = urls[key]
-    filename = f"{DIR}{os.path.sep}{url.split('/')[-1]}"
+    filename = os.path.join(cache_dir, url.split('/')[-1])
     fname = os.path.basename(filename)
     if not os.path.exists(filename):
         if not args.quiet:
@@ -314,7 +357,7 @@ def get_jbb(args, package, is_dep=False):
         urllib.request.urlretrieve(url, filename)
 
     # Extract tgz with Python
-    extracted = f"{DIR}{os.path.sep}{package}"
+    extracted = os.path.join(cache_dir, package)
     if not os.path.exists(extracted):
         if not args.quiet:
             print("- Extracting " + fname)
@@ -411,6 +454,10 @@ def parse_args():
 
 
 def app(args):
+    global DONE
+
+    # Dependencies are de-duplicated within one request, not across jbb() calls.
+    DONE = []
     setup(args)
     libs = []
     for package in args.package:

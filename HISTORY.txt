@@ -1,3 +1,7 @@
+v0.1.7 - unreleased
+- Cache tags, metadata, archives, and extracted libraries by GitHub project and tag
+- Refresh tag lists for latest lookups while using cached tags if offline
+
 v0.1.6 - 10/19/2026
 - Pick the latest tag by version number instead of string order, which
   chose v8.9.1 over v8.23.0 when no version was provided
