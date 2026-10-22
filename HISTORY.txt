@@ -1,4 +1,4 @@
-v0.1.7 - unreleased
+v0.1.7 - 10/22/2026
 - Cache tags, metadata and archives by GitHub project and tag; packages still extract to <outdir>/<Package> and are re-extracted if the project or tag differs
 - Refresh tag lists for latest lookups while using cached tags if offline
 
