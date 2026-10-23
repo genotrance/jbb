@@ -40,13 +40,6 @@ Issues = "https://github.com/genotrance/jbb/issues"
 [project.scripts]
 jbb = "jbb:main"
 
-[dependency-groups]
-build = [
-  "build",
-  "twine",
-  "tox<4",
-]
-
 [tool.setuptools]
 py-modules = ["jbb"]
 

@@ -15,18 +15,20 @@ fi
 if [ ! -d "dist" ] || [ "$1" = "--force" ]; then
     # Build wheels if missing or --force
     rm -rf build jbb.egg-info dist
-    uv run --locked --group build --python "$PY" python -m build -w -s
+    uv pip install build twine
+    $PY -m build -w -s
     rm -rf build jbb.egg-info
-    uv run --locked --group build --python "$PY" python -m twine check dist/*
+    $PY -m twine check dist/*
 fi
 
 if [ "$1" = "--post" ]; then
     # Upload wheel to PyPI
-    uv run --locked --group build --python "$PY" python -m twine upload dist/*
+    $PY -m twine upload dist/*
 elif [ "$1" = "--test" ]; then
     if [ -f "/.dockerenv" ] || [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
         # Run tests with tox
-        uv run --locked --group build --python "$PY" python -m tox --installpkg dist/jbb-*.whl --workdir $TMP
+        uv pip install tox
+        $PY -m tox --installpkg dist/jbb-*.whl --workdir $TMP
     else
         # Run tests in containers for linux
         for arch in x86_64 i686 aarch64; do
