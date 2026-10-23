@@ -82,3 +82,15 @@ jbb.jbb(
     quiet=False
 )
 ```
+
+### Development dependencies
+
+`jbb` has no runtime dependencies outside the Python standard library.  The
+tracked `uv.lock` instead pins the build and test tooling used by `build.sh`,
+so source checkouts and verification use reviewed tool versions.
+
+Use `uv sync --locked` to verify that `pyproject.toml` and `uv.lock` agree.
+For intentional dependency updates, run `uv lock --upgrade` (or
+`uv lock --upgrade-package <name>`), run the relevant tests, and commit both
+the project metadata and lockfile.  Dependabot opens routine `uv` dependency
+upgrade pull requests weekly; review and test those changes before merging.
